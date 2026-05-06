@@ -1,9 +1,7 @@
 # SPS - Student Pickup System
-
 A comprehensive student pickup management system built with React (frontend) and Laravel (backend).
 
 ## 🚀 Features
-
 - **QR Code Generation**: Generate unique QR codes for student pickup
 - **Real-time Tracking**: Track student pickup status in real-time
 - **User Management**: Manage students, guardians, and administrative staff
@@ -11,7 +9,6 @@ A comprehensive student pickup management system built with React (frontend) and
 - **Secure Authentication**: JWT-based authentication system
 
 ## 🏗️ Project Structure
-
 ```
 sps/
 ├── frontend/          # React.js frontend application
@@ -20,21 +17,17 @@ sps/
 ```
 
 ## 🛠️ Tech Stack
-
 ### Frontend
 - React.js
 - Vite
 - Tailwind CSS
-- Axios for API calls
 
 ### Backend
 - Laravel 11
 - MySQL
-- JWT Authentication
 - RESTful API
 
 ## 📋 Prerequisites
-
 - Node.js (v18 or higher)
 - PHP (v8.2 or higher)
 - Composer
@@ -42,7 +35,6 @@ sps/
 - Git
 
 ## 🚀 Quick Start
-
 ### Backend Setup
 ```bash
 cd backend
@@ -67,7 +59,6 @@ npm run dev
 - [Quick Reference](docs/QUICK_REFERENCE.md)
 
 ## 🤝 Contributing
-
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
@@ -75,13 +66,10 @@ npm run dev
 5. Open a Pull Request
 
 ## 📝 License
-
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 👥 Authors
-
-- **Your Name** - *Initial work* - [YourGitHubUsername](https://github.com/YourGitHubUsername)
+- **Elton Ricardo** - *Initial work* - [eltonrsk](https://github.com/eltonrsk)
 
 ## 📞 Support
-
-For support, please email support@example.com or create an issue in the repository.
+For support, please email wrecklonnie@gmail.com or create an issue in the repository.
