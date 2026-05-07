@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authService } from '../services/authService';
 
 type UserProfile = {
   id: string;
@@ -24,50 +25,75 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Check for existing auth on mount
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (authService.isAuthenticated()) {
+          const verification = await authService.verifyToken();
+          if (verification?.valid) {
+            const profileResponse = await authService.getMyProfile();
+            const currentUser = profileResponse.user;
+            setUser({ id: currentUser.id, email: currentUser.email });
+            setProfile(currentUser);
+          } else {
+            authService.logout();
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        authService.logout();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
 
   const signIn = async (email: string, password: string) => {
-    // Mock sign in (replace with real API auth in production)
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setUser({ id: email, email });
-
-    // Sample admin user
-    const isAdmin = email === 'admin@school.com' && password === 'password123';
-
-    setProfile({
-      id: email,
-      email,
-      full_name: isAdmin ? 'Admin User' : 'User',
-      role: isAdmin ? 'admin' : 'parent',
-      is_active: true,
-    });
-    setLoading(false);
+    try {
+      const response = await authService.login({ email, password });
+      setUser({ id: response.user.id, email: response.user.email });
+      setProfile(response.user);
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signUp = async (email: string, password: string, fullName: string, role: string, phoneNumber?: string) => {
-    // Mock sign up (replace with real API registration in production)
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setUser({ id: email, email });
-    setProfile({
-      id: email,
-      email,
-      full_name: fullName,
-      role: role as UserProfile['role'],
-      phone_number: phoneNumber,
-      is_active: true,
-    });
-    setLoading(false);
+    try {
+      await authService.register({
+        email,
+        full_name: fullName,
+        role: role as 'admin' | 'parent' | 'teacher' | 'security',
+        phone_number: phoneNumber,
+        password
+      });
+      
+      // After successful registration, sign in
+      await signIn(email, password);
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signOut = async () => {
+    authService.logout();
     setUser(null);
     setProfile(null);
   };
 
   const resetPassword = async (email: string) => {
-    // Mock reset
+    // This would be implemented in the backend
     console.log('Password reset for', email);
   };
 

@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { qrCodeService } from '../services/qrCodeService';
+import { pickupService } from '../services/pickupService';
+import { userService } from '../services/userService';
+import { studentService } from '../services/studentService';
 import { ScanLine, CheckCircle, XCircle, User } from 'lucide-react';
 
 type ScanResult = {
@@ -43,14 +46,18 @@ export default function QRScanner({
     setStudentToConfirm(null);
 
     try {
-      const { data: qrCode, error: qrError } = await supabase
-        .from('qr_codes')
-        .select('id, user_id, student_id, is_active')
-        .eq('code', scanInput.trim())
-        .maybeSingle();
+      // Validate QR code using backend API
+      const validation = await qrCodeService.validateQRCode(scanInput.trim());
+      
+      if (!validation.valid) {
+        setResult({
+          success: false,
+          message: validation.error || 'Invalid QR code. Please try again.',
+        });
+        return;
+      }
 
-      if (qrError) throw qrError;
-
+      const qrCode = validation.qrCode;
       if (!qrCode) {
         setResult({
           success: false,
@@ -67,24 +74,39 @@ export default function QRScanner({
         return;
       }
 
-      const { data: parent, error: parentError } = await supabase
-        .from('user_profiles')
-        .select('full_name')
-        .eq('id', qrCode.user_id)
-        .maybeSingle();
-
-      if (parentError) throw parentError;
+      // Get parent information
+      let parent;
+      try {
+        parent = await userService.getUserById(qrCode.user_id);
+      } catch (error) {
+        console.error('Error fetching parent:', error);
+        parent = { full_name: 'Unknown' };
+      }
 
       if (qrCode.student_id) {
-        const { data: student, error: studentError } = await supabase
-          .from('students')
-          .select('id, first_name, last_name, grade, class_name')
-          .eq('id', qrCode.student_id)
-          .maybeSingle();
-
-        if (studentError) throw studentError;
-
-        if (student) {
+        // Get student information
+        const student = await studentService.getStudentById(qrCode.student_id);
+        
+        setStudentToConfirm({
+          qrCodeId: qrCode.id,
+          studentId: student.id,
+          parentId: qrCode.user_id,
+          student: {
+            first_name: student.first_name,
+            last_name: student.last_name,
+            grade: student.grade,
+            class_name: student.class_name,
+          },
+          parent: {
+            full_name: parent?.full_name || 'Unknown',
+          },
+        });
+      } else {
+        // Get students for this guardian
+        const students = await studentService.getStudentsByGuardian(qrCode.user_id);
+        
+        if (students && students.length > 0) {
+          const student = students[0];
           setStudentToConfirm({
             qrCodeId: qrCode.id,
             studentId: student.id,
@@ -99,31 +121,10 @@ export default function QRScanner({
               full_name: parent?.full_name || 'Unknown',
             },
           });
-        }
-      } else {
-        const { data: guardians, error: guardiansError } = await supabase
-          .from('guardians')
-          .select('student_id, students(id, first_name, last_name, grade, class_name)')
-          .eq('user_id', qrCode.user_id)
-          .eq('is_authorized', true);
-
-        if (guardiansError) throw guardiansError;
-
-        if (guardians && guardians.length > 0) {
-          const student = (guardians[0] as { students: { id: string; first_name: string; last_name: string; grade: string; class_name: string | null } }).students;
-          setStudentToConfirm({
-            qrCodeId: qrCode.id,
-            studentId: student.id,
-            parentId: qrCode.user_id,
-            student: {
-              first_name: student.first_name,
-              last_name: student.last_name,
-              grade: student.grade,
-              class_name: student.class_name,
-            },
-            parent: {
-              full_name: parent?.full_name || 'Unknown',
-            },
+        } else {
+          setResult({
+            success: false,
+            message: 'No authorized students found for this guardian.',
           });
         }
       }
@@ -144,28 +145,17 @@ export default function QRScanner({
 
     setScanning(true);
     try {
-      const { error } = await supabase.from('pickups').insert({
+      // Create pickup record using backend API
+      await pickupService.createPickup({
         student_id: studentToConfirm.studentId,
         picked_by_user_id: studentToConfirm.parentId,
         verified_by_user_id: securityUserId,
         qr_code_id: studentToConfirm.qrCodeId,
-        pickup_time: new Date().toISOString(),
+        notes: undefined
       });
 
-      if (error) throw error;
-
-      await supabase
-        .from('qr_codes')
-        .update({ last_used_at: new Date().toISOString() })
-        .eq('id', studentToConfirm.qrCodeId);
-
-      await supabase.from('notifications').insert({
-        user_id: studentToConfirm.parentId,
-        title: 'Pickup Confirmed',
-        message: `${studentToConfirm.student?.first_name} ${studentToConfirm.student?.last_name} has been picked up successfully.`,
-        type: 'pickup_confirmation',
-        is_read: false,
-      });
+      // Mark QR code as used
+      await qrCodeService.markQRCodeAsUsed(studentToConfirm.qrCodeId);
 
       setResult({
         success: true,

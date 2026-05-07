@@ -1,10 +1,28 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { studentService } from '../services/studentService';
+import { userService } from '../services/userService';
 import { GraduationCap, Search, Plus, X, UserPlus } from 'lucide-react';
-import type { Database } from '../lib/database.types';
 
-type Student = Database['public']['Tables']['students']['Row'];
-type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
+type Student = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  grade: string;
+  class_name?: string;
+  photo_url?: string;
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+};
+
+type UserProfile = {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  phone_number?: string;
+  is_active: boolean;
+};
 
 export default function StudentManagement() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -39,14 +57,8 @@ export default function StudentManagement() {
 
   const loadStudents = async () => {
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setStudents(data || []);
+      const data = await studentService.getAllStudents();
+      setStudents(data);
     } catch (error) {
       console.error('Error loading students:', error);
     } finally {
@@ -56,14 +68,8 @@ export default function StudentManagement() {
 
   const loadParents = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('role', 'parent')
-        .eq('is_active', true);
-
-      if (error) throw error;
-      setParents(data || []);
+      const data = await userService.getAllUsers('parent');
+      setParents(data);
     } catch (error) {
       console.error('Error loading parents:', error);
     }
@@ -90,18 +96,12 @@ export default function StudentManagement() {
     setLoading(true);
 
     try {
-      const { data: user } = await supabase.auth.getUser();
-
-      const { error } = await supabase.from('students').insert({
+      await studentService.createStudent({
         first_name: newStudent.firstName,
         last_name: newStudent.lastName,
         grade: newStudent.grade,
-        class_name: newStudent.className || null,
-        is_active: true,
-        created_by: user.user?.id,
+        class_name: newStudent.className || undefined,
       });
-
-      if (error) throw error;
 
       setShowAddModal(false);
       setNewStudent({
@@ -126,14 +126,11 @@ export default function StudentManagement() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.from('guardians').insert({
+      await studentService.addGuardian(selectedStudent.id, {
         user_id: newGuardian.userId,
-        student_id: selectedStudent.id,
         relationship: newGuardian.relationship,
         is_authorized: true,
       });
-
-      if (error) throw error;
 
       setShowGuardianModal(false);
       setNewGuardian({
