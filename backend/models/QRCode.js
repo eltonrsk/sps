@@ -23,7 +23,7 @@ export class QRCode {
   static async findByCode(code) {
     const query = `
       SELECT qr.*, u.full_name as user_name, u.role as user_role,
-             s.first_name, s.last_name, s.grade, s.class_name
+             CONCAT(s.first_name, ' ', s.last_name) as student_name, s.grade, s.class_name
       FROM qr_codes qr
       LEFT JOIN user_profiles u ON qr.user_id = u.id
       LEFT JOIN students s ON qr.student_id = s.id
@@ -38,7 +38,7 @@ export class QRCode {
   static async findById(id) {
     const query = `
       SELECT qr.*, u.full_name as user_name, u.role as user_role,
-             s.first_name, s.last_name, s.grade, s.class_name
+             CONCAT(s.first_name, ' ', s.last_name) as student_name, s.grade, s.class_name
       FROM qr_codes qr
       LEFT JOIN user_profiles u ON qr.user_id = u.id
       LEFT JOIN students s ON qr.student_id = s.id
@@ -52,7 +52,7 @@ export class QRCode {
   // Get QR codes for user
   static async findByUser(userId, includeExpired = false) {
     let query = `
-      SELECT qr.*, s.first_name, s.last_name, s.grade, s.class_name
+      SELECT qr.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, s.grade, s.class_name
       FROM qr_codes qr
       LEFT JOIN students s ON qr.student_id = s.id
       WHERE qr.user_id = ?
@@ -130,7 +130,7 @@ export class QRCode {
   static async findAll(includeExpired = false) {
     let query = `
       SELECT qr.*, u.full_name as user_name, u.role as user_role,
-             s.first_name, s.last_name, s.grade, s.class_name
+             CONCAT(s.first_name, ' ', s.last_name) as student_name, s.grade, s.class_name
       FROM qr_codes qr
       LEFT JOIN user_profiles u ON qr.user_id = u.id
       LEFT JOIN students s ON qr.student_id = s.id
