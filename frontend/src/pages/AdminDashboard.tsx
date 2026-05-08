@@ -82,8 +82,12 @@ export default function AdminDashboard() {
 
       setRecentPickups(recentPickupData);
       setQrCodes(qrData);
-      setNotifications(notificationData);
-      setUnreadCount(notificationData.filter(n => !n.is_read).length);
+      // Deduplicate notifications by ID
+      const uniqueNotifications = notificationData.filter((notification, index, self) =>
+        index === self.findIndex((n) => n.id === notification.id)
+      );
+      setNotifications(uniqueNotifications);
+      setUnreadCount(uniqueNotifications.filter(n => !n.is_read).length);
     } catch (error) {
       console.error('Error loading admin dashboard data:', error);
       setDashboardError(error instanceof Error ? error.message : 'Failed to load admin dashboard data');
@@ -107,8 +111,12 @@ export default function AdminDashboard() {
   const refreshNotifications = async () => {
     try {
       const notificationData = await notificationService.getAllNotifications({ limit: 50 });
-      setNotifications(notificationData);
-      setUnreadCount(notificationData.filter(n => !n.is_read).length);
+      // Deduplicate notifications by ID
+      const uniqueNotifications = notificationData.filter((notification, index, self) =>
+        index === self.findIndex((n) => n.id === notification.id)
+      );
+      setNotifications(uniqueNotifications);
+      setUnreadCount(uniqueNotifications.filter(n => !n.is_read).length);
     } catch (error) {
       console.error('Error refreshing notifications:', error);
     }

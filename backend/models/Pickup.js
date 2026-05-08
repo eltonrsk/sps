@@ -5,12 +5,21 @@ export class Pickup {
   static async create(pickupData) {
     const { student_id, picked_by_user_id, verified_by_user_id, qr_code_id, notes } = pickupData;
     
+    // Convert undefined to null for database compatibility
+    const params = [
+      student_id,
+      picked_by_user_id || null,
+      verified_by_user_id || null,
+      qr_code_id || null,
+      notes || null
+    ];
+    
     const query = `
       INSERT INTO pickups (student_id, picked_by_user_id, verified_by_user_id, qr_code_id, notes)
       VALUES (?, ?, ?, ?, ?)
     `;
     
-    const result = await executeQuery(query, [student_id, picked_by_user_id, verified_by_user_id, qr_code_id, notes]);
+    const result = await executeQuery(query, params);
     return result.insertId;
   }
 

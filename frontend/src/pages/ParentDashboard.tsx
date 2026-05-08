@@ -77,7 +77,11 @@ export default function ParentDashboard() {
         notificationService.getUserNotifications(false, 20),
         notificationService.getUnreadCount()
       ]);
-      setNotifications(notificationData);
+      // Deduplicate notifications by ID
+      const uniqueNotifications = notificationData.filter((notification, index, self) =>
+        index === self.findIndex((n) => n.id === notification.id)
+      );
+      setNotifications(uniqueNotifications);
       setUnreadCount(unreadData.unread_count);
     } catch (error) {
       console.error('Error loading parent data:', error);
@@ -178,7 +182,11 @@ export default function ParentDashboard() {
         notificationService.getUserNotifications(false, 20),
         notificationService.getUnreadCount()
       ]);
-      setNotifications(notificationData);
+      // Deduplicate notifications by ID
+      const uniqueNotifications = notificationData.filter((notification, index, self) =>
+        index === self.findIndex((n) => n.id === notification.id)
+      );
+      setNotifications(uniqueNotifications);
       setUnreadCount(unreadData.unread_count);
     } catch (error) {
       console.error('Error refreshing notifications:', error);
