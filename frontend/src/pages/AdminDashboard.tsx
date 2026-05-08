@@ -52,6 +52,8 @@ export default function AdminDashboard() {
   const [recentPickups, setRecentPickups] = useState<Pickup[]>([]);
   const [qrCodes, setQrCodes] = useState<QRCode[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [loadingData, setLoadingData] = useState(true);
   const [dashboardError, setDashboardError] = useState('');
   const [activeTab, setActiveTab] = useState<TabId>('overview');
@@ -81,6 +83,7 @@ export default function AdminDashboard() {
       setRecentPickups(recentPickupData);
       setQrCodes(qrData);
       setNotifications(notificationData);
+      setUnreadCount(notificationData.filter(n => !n.is_read).length);
     } catch (error) {
       console.error('Error loading admin dashboard data:', error);
       setDashboardError(error instanceof Error ? error.message : 'Failed to load admin dashboard data');
@@ -98,6 +101,40 @@ export default function AdminDashboard() {
       await signOut();
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const refreshNotifications = async () => {
+    try {
+      const notificationData = await notificationService.getAllNotifications({ limit: 50 });
+      setNotifications(notificationData);
+      setUnreadCount(notificationData.filter(n => !n.is_read).length);
+    } catch (error) {
+      console.error('Error refreshing notifications:', error);
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await notificationService.markAsRead(notificationId);
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifications(prev => 
+        prev.map(n => ({ ...n, is_read: true }))
+      );
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
     }
   };
 
@@ -142,6 +179,11 @@ export default function AdminDashboard() {
                   >
                     <Icon className="w-4 h-4" />
                     {item.label}
+                    {item.id === 'notifications' && unreadCount > 0 && (
+                      <span className="ml-1 px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -293,26 +335,109 @@ export default function AdminDashboard() {
           </div>
         )}
         {activeTab === 'notifications' && (
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Notifications</h2>
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Notifications</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={refreshNotifications}
+                  className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  Refresh
+                </button>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllAsRead}
+                    className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                  >
+                    Mark All as Read
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={() => setNotificationFilter('all')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  notificationFilter === 'all'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setNotificationFilter('unread')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  notificationFilter === 'unread'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Unread {unreadCount > 0 && `(${unreadCount})`}
+              </button>
+              <button
+                onClick={() => setNotificationFilter('read')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  notificationFilter === 'read'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Read
+              </button>
+            </div>
+
             {loadingData ? (
-              <p className="text-gray-600">Loading notifications...</p>
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
             ) : notifications.length === 0 ? (
-              <p className="text-gray-600">No notifications available.</p>
+              <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-200">
+                <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 text-lg font-medium mb-2">No notifications</p>
+                <p className="text-gray-500">Your notifications will appear here.</p>
+              </div>
             ) : (
-              <div className="space-y-3">
-                {notifications.slice(0, 25).map((notification) => (
-                  <div key={notification.id} className="p-3 border border-gray-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium text-gray-900">{notification.title}</div>
-                      <span className={`text-xs px-2 py-1 rounded-full ${notification.is_read ? 'bg-gray-100 text-gray-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {notification.is_read ? 'Read' : 'Unread'}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1">{notification.message}</div>
-                    <div className="text-xs text-gray-500 mt-1">{new Date(notification.created_at).toLocaleString()}</div>
-                  </div>
-                ))}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="divide-y divide-gray-200">
+                  {notifications
+                    .filter((notification) => {
+                      if (notificationFilter === 'unread') return !notification.is_read;
+                      if (notificationFilter === 'read') return notification.is_read;
+                      return true;
+                    })
+                    .slice(0, 50)
+                    .map((notification) => (
+                      <div
+                        key={notification.id}
+                        onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
+                        className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                          !notification.is_read ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className={`font-semibold ${!notification.is_read ? 'text-gray-900' : 'text-gray-700'}`}>
+                                {notification.title}
+                              </h3>
+                              {!notification.is_read && (
+                                <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span>{notification.user_name || 'System'}</span>
+                              <span>•</span>
+                              <span>{new Date(notification.created_at).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
           </div>
