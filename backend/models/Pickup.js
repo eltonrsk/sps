@@ -88,7 +88,7 @@ export class Pickup {
   static async getTodayPickups() {
     const query = `
       SELECT p.*, 
-             s.first_name, s.last_name, s.grade, s.class_name,
+             CONCAT(s.first_name, ' ', s.last_name) as student_name, s.grade, s.class_name,
              picker.full_name as picked_by_name,
              verifier.full_name as verified_by_name
       FROM pickups p
@@ -163,7 +163,7 @@ export class Pickup {
   static async getRecentPickups(limit = 10) {
     const query = `
       SELECT p.*, 
-             s.first_name, s.last_name, s.grade,
+             CONCAT(s.first_name, ' ', s.last_name) as student_name, s.grade,
              picker.full_name as picked_by_name,
              verifier.full_name as verified_by_name
       FROM pickups p

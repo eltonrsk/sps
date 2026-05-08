@@ -1,28 +1,44 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Shield, LogOut, ScanLine, History } from 'lucide-react';
+import QRScanner from '../components/QRScanner';
+import { pickupService, Pickup } from '../services/pickupService';
 
 type TodayStats = {
   totalPickups: number;
-  recentPickups: Array<{
-    id: string;
-    student_name: string;
-    parent_name: string;
-    pickup_time: string;
-  }>;
+  recentPickups: Pickup[];
 };
 
 export default function SecurityDashboard() {
   const { signOut, profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'scanner' | 'history'>('scanner');
-  const [stats] = useState<TodayStats>({
-    totalPickups: 45,
-    recentPickups: [
-      { id: '1', student_name: 'John Doe', parent_name: 'Jane Doe', pickup_time: '2:30 PM' },
-      { id: '2', student_name: 'Alice Smith', parent_name: 'Bob Smith', pickup_time: '2:15 PM' },
-      { id: '3', student_name: 'Charlie Brown', parent_name: 'Lucy Brown', pickup_time: '2:00 PM' },
-    ]
+  const [stats, setStats] = useState<TodayStats>({
+    totalPickups: 0,
+    recentPickups: []
   });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSecurityData();
+  }, []);
+
+  const loadSecurityData = async () => {
+    try {
+      const [todayPickups, recentPickupData] = await Promise.all([
+        pickupService.getTodayPickups(),
+        pickupService.getRecentPickups(10)
+      ]);
+
+      setStats({
+        totalPickups: todayPickups.length,
+        recentPickups: recentPickupData
+      });
+    } catch (error) {
+      console.error('Error loading security data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -93,21 +109,26 @@ export default function SecurityDashboard() {
 
         <div className="mb-6">
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Today's Statistics</h3>
-                <p className="text-3xl font-bold text-blue-600 mt-2">{stats.totalPickups} Pickups</p>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
               </div>
-              <Shield className="w-16 h-16 text-blue-100" />
-            </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Today's Statistics</h3>
+                  <p className="text-3xl font-bold text-blue-600 mt-2">{stats.totalPickups} Pickups</p>
+                </div>
+                <Shield className="w-16 h-16 text-blue-100" />
+              </div>
+            )}
           </div>
         </div>
 
         {activeTab === 'scanner' && (
           <div>
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">QR Scanner</h2>
-              <p className="text-gray-600">QR scanning functionality would be implemented here.</p>
+              <QRScanner securityUserId={profile?.id || ''} onPickupComplete={loadSecurityData} />
             </div>
 
             {stats.recentPickups.length > 0 && (
@@ -119,10 +140,16 @@ export default function SecurityDashboard() {
                       <div key={pickup.id} className="p-4 hover:bg-gray-50 transition-colors">
                         <div className="flex justify-between items-center">
                           <div>
-                            <div className="font-medium text-gray-900">{pickup.student_name}</div>
-                            <div className="text-sm text-gray-600">Picked by: {pickup.parent_name}</div>
+                            <div className="font-medium text-gray-900">
+                              {pickup.student_name || 'Unknown Student'} ({pickup.grade || '-'})
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Picked by: {pickup.picked_by_name || 'Unknown'} • Verified by: {pickup.verified_by_name || 'Unknown'}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500">{pickup.pickup_time}</div>
+                          <div className="text-sm text-gray-500">
+                            {new Date(pickup.pickup_time).toLocaleString()}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -136,7 +163,27 @@ export default function SecurityDashboard() {
         {activeTab === 'history' && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Pickup History</h2>
-            <p className="text-gray-600">Pickup history functionality would be implemented here.</p>
+            {loading ? (
+              <p className="text-gray-600">Loading pickup history...</p>
+            ) : stats.recentPickups.length === 0 ? (
+              <p className="text-gray-600">No pickup records yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {stats.recentPickups.map((pickup) => (
+                  <div key={pickup.id} className="p-3 border border-gray-200 rounded-lg">
+                    <div className="font-medium text-gray-900">
+                      {pickup.student_name || 'Student'} ({pickup.grade || '-'})
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Picked by {pickup.picked_by_name || 'N/A'} • Verified by {pickup.verified_by_name || 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(pickup.pickup_time).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
