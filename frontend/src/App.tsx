@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useAuth } from './contexts/AuthContext';
+import { LandingPage } from './pages/LandingPage';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import SecurityDashboard from './pages/SecurityDashboard';
@@ -6,6 +8,7 @@ import ParentDashboard from './pages/ParentDashboard';
 
 function App() {
   const { user, profile, loading } = useAuth();
+  const [showLogin, setShowLogin] = useState(false);
 
   if (loading) {
     return (
@@ -19,7 +22,10 @@ function App() {
   }
 
   if (!user || !profile) {
-    return <Login />;
+    if (!showLogin) {
+      return <LandingPage onGetStarted={() => setShowLogin(true)} />;
+    }
+    return <Login onBack={() => setShowLogin(false)} />;
   }
 
   switch (profile.role) {
