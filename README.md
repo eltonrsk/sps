@@ -23,7 +23,6 @@ sps/
 - Tailwind CSS
 
 ### Backend
-- Laravel 11
 - MySQL
 - RESTful API
 

@@ -1,20 +1,13 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { QrCode, Plus, Download, Copy, Check } from 'lucide-react';
+import { qrCodeService, QRCode } from '../services/qrCodeService';
+import { QrCode, Plus, Download, Copy, Check, Smartphone, Clock, AlertTriangle } from 'lucide-react';
+import { Student } from '../services/studentService';
 
-type QRCode = {
-  id: string;
-  code: string;
-  is_active: boolean;
-  created_at: string;
-  last_used_at: string | null;
-  student_id: string | null;
-};
-
-export default function QRCodeDisplay({ userId }: { userId: string }) {
+export default function QRCodeDisplay({ userId, students = [] }: { userId: string; students?: Student[] }) {
   const [qrCodes, setQrCodes] = useState<QRCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState('');
 
   useEffect(() => {
     loadQRCodes();
@@ -22,15 +15,8 @@ export default function QRCodeDisplay({ userId }: { userId: string }) {
 
   const loadQRCodes = async () => {
     try {
-      const { data, error } = await supabase
-        .from('qr_codes')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setQrCodes(data || []);
+      const codes = await qrCodeService.getUserQRCodes(userId, false);
+      setQrCodes(codes);
     } catch (error) {
       console.error('Error loading QR codes:', error);
     } finally {
@@ -41,15 +27,15 @@ export default function QRCodeDisplay({ userId }: { userId: string }) {
   const generateQRCode = async () => {
     try {
       setLoading(true);
-      const codeValue = `${userId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiry
 
-      const { error } = await supabase.from('qr_codes').insert({
+      await qrCodeService.generateQRCode({
         user_id: userId,
-        code: codeValue,
-        is_active: true,
+        student_id: selectedStudent || undefined,
+        expires_at: expiresAt.toISOString()
       });
 
-      if (error) throw error;
       await loadQRCodes();
     } catch (error) {
       console.error('Error generating QR code:', error);
@@ -75,12 +61,7 @@ export default function QRCodeDisplay({ userId }: { userId: string }) {
 
   const deactivateQRCode = async (codeId: string) => {
     try {
-      const { error } = await supabase
-        .from('qr_codes')
-        .update({ is_active: false })
-        .eq('id', codeId);
-
-      if (error) throw error;
+      await qrCodeService.deactivateQRCode(codeId);
       await loadQRCodes();
     } catch (error) {
       console.error('Error deactivating QR code:', error);
@@ -98,14 +79,29 @@ export default function QRCodeDisplay({ userId }: { userId: string }) {
           <h2 className="text-2xl font-bold text-gray-900">My QR Codes</h2>
           <p className="text-gray-600 text-sm mt-1">Generate and manage pickup QR codes</p>
         </div>
-        <button
-          onClick={generateQRCode}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-4 h-4" />
-          Generate New QR
-        </button>
+        <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
+          <select
+            value={selectedStudent}
+            onChange={(e) => setSelectedStudent(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            aria-label="Select student for QR code"
+          >
+            <option value="">Any linked student</option>
+            {students.map((student) => (
+              <option key={student.id} value={student.id}>
+                {student.first_name} {student.last_name} ({student.grade})
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={generateQRCode}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-4 h-4" />
+            Generate New QR
+          </button>
+        </div>
       </div>
 
       {qrCodes.length === 0 ? (

@@ -1,5 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import UserManagement from '../components/UserManagement';
+import StudentManagement from '../components/StudentManagement';
+import QRScanner from '../components/QRScanner';
+import { studentService } from '../services/studentService';
+import { userService } from '../services/userService';
+import { pickupService, Pickup } from '../services/pickupService';
+import { qrCodeService, QRCode } from '../services/qrCodeService';
+import { notificationService, Notification } from '../services/notificationService';
 import {
   Users,
   GraduationCap,
@@ -35,13 +43,55 @@ type TabId = (typeof navItems)[number]['id'];
 
 export default function AdminDashboard() {
   const { signOut, profile } = useAuth();
-  const [stats] = useState<DashboardStats>({
-    totalStudents: 150,
-    pickedToday: 120,
-    notPickedToday: 30,
-    totalUsers: 25,
+  const [stats, setStats] = useState<DashboardStats>({
+    totalStudents: 0,
+    pickedToday: 0,
+    notPickedToday: 0,
+    totalUsers: 0,
   });
+  const [recentPickups, setRecentPickups] = useState<Pickup[]>([]);
+  const [qrCodes, setQrCodes] = useState<QRCode[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [dashboardError, setDashboardError] = useState('');
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+
+  const loadAdminData = async () => {
+    setDashboardError('');
+    try {
+      const [students, users, todayPickups, recentPickupData, qrData, notificationData] = await Promise.all([
+        studentService.getAllStudents(),
+        userService.getAllUsers(),
+        pickupService.getTodayPickups(),
+        pickupService.getRecentPickups(30),
+        qrCodeService.getAllQRCodes(true),
+        notificationService.getAllNotifications({ limit: 50 })
+      ]);
+
+      const uniqueStudentPickups = new Set(todayPickups.map((pickup) => pickup.student_id)).size;
+      const notPicked = Math.max(students.length - uniqueStudentPickups, 0);
+
+      setStats({
+        totalStudents: students.length,
+        pickedToday: uniqueStudentPickups,
+        notPickedToday: notPicked,
+        totalUsers: users.length
+      });
+
+      setRecentPickups(recentPickupData);
+      setQrCodes(qrData);
+      setNotifications(notificationData);
+    } catch (error) {
+      console.error('Error loading admin dashboard data:', error);
+      setDashboardError(error instanceof Error ? error.message : 'Failed to load admin dashboard data');
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAdminData();
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -101,6 +151,9 @@ export default function AdminDashboard() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {dashboardError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">{dashboardError}</div>
+        )}
         {activeTab === 'overview' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -173,40 +226,95 @@ export default function AdminDashboard() {
           </>
         )}
 
-        {activeTab === 'users' && (
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">User Management</h2>
-            <p className="text-gray-600">User management functionality would be implemented here.</p>
-          </div>
-        )}
-        {activeTab === 'students' && (
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Student Management</h2>
-            <p className="text-gray-600">Student management functionality would be implemented here.</p>
-          </div>
-        )}
+        {activeTab === 'users' && <UserManagement />}
+        {activeTab === 'students' && <StudentManagement />}
         {activeTab === 'qrcodes' && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">QR Codes</h2>
-            <p className="text-gray-600">Generate and manage QR codes here.</p>
+            {loadingData ? (
+              <p className="text-gray-600">Loading QR codes...</p>
+            ) : qrCodes.length === 0 ? (
+              <p className="text-gray-600">No QR codes available.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {qrCodes.slice(0, 20).map((code) => (
+                      <tr key={code.id}>
+                        <td className="px-4 py-2 text-sm text-gray-900">{code.code}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{code.user_name || code.user_id}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{code.student_name || '-'}</td>
+                        <td className="px-4 py-2 text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs ${code.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                            {code.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
         {activeTab === 'scanner' && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Pickup Scanner</h2>
-            <p className="text-gray-600">Scan student QR codes for pickup check-in.</p>
+            <QRScanner securityUserId={profile?.id || ''} onPickupComplete={loadAdminData} />
           </div>
         )}
         {activeTab === 'history' && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Pickup History</h2>
-            <p className="text-gray-600">View pickup logs and reports.</p>
+            {loadingData ? (
+              <p className="text-gray-600">Loading pickup history...</p>
+            ) : recentPickups.length === 0 ? (
+              <p className="text-gray-600">No pickup records yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {recentPickups.map((pickup) => (
+                  <div key={pickup.id} className="p-3 border border-gray-200 rounded-lg">
+                    <div className="font-medium text-gray-900">{pickup.student_name || 'Student'} ({pickup.grade || '-'})</div>
+                    <div className="text-sm text-gray-600">
+                      Picked by {pickup.picked_by_name || 'N/A'} • Verified by {pickup.verified_by_name || 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-500">{new Date(pickup.pickup_time).toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {activeTab === 'notifications' && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Notifications</h2>
-            <p className="text-gray-600">Manage app notifications and alerts.</p>
+            {loadingData ? (
+              <p className="text-gray-600">Loading notifications...</p>
+            ) : notifications.length === 0 ? (
+              <p className="text-gray-600">No notifications available.</p>
+            ) : (
+              <div className="space-y-3">
+                {notifications.slice(0, 25).map((notification) => (
+                  <div key={notification.id} className="p-3 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium text-gray-900">{notification.title}</div>
+                      <span className={`text-xs px-2 py-1 rounded-full ${notification.is_read ? 'bg-gray-100 text-gray-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {notification.is_read ? 'Read' : 'Unread'}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">{notification.message}</div>
+                    <div className="text-xs text-gray-500 mt-1">{new Date(notification.created_at).toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

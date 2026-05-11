@@ -1,5 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { api } from '../lib/api';
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 type UserProfile = {
   id: string;
@@ -27,79 +26,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Check if user is already logged in on mount
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const userData = await api.getMe();
-        setUser({ id: userData.id, email: userData.email });
-        setProfile({
-          id: userData.id,
-          email: userData.email,
-          full_name: userData.full_name,
-          role: userData.role as UserProfile['role'],
-          phone_number: userData.phone_number,
-          is_active: userData.is_active,
-        });
-      } catch (error) {
-        // User not authenticated, clear token
-        api.clearToken();
-      }
-    };
-
-    checkAuthStatus();
-  }, []);
-
   const signIn = async (email: string, password: string) => {
     setLoading(true);
-    try {
-      const authData = await api.login(email, password);
-      setUser({ id: authData.user.id, email: authData.user.email });
-      setProfile({
-        id: authData.user.id,
-        email: authData.user.email,
-        full_name: authData.user.full_name,
-        role: authData.user.role as UserProfile['role'],
-        phone_number: authData.user.phone_number,
-        is_active: authData.user.is_active,
-      });
-    } finally {
-      setLoading(false);
-    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setUser({ id: email, email });
+
+    // Sample admin user
+    const isAdmin = email === 'admin@school.com' && password === 'password123';
+
+    setProfile({
+      id: email,
+      email,
+      full_name: isAdmin ? 'Admin User' : 'User',
+      role: isAdmin ? 'admin' : 'parent',
+      is_active: true,
+    });
+    setLoading(false);
   };
 
   const signUp = async (email: string, password: string, fullName: string, role: string, phoneNumber?: string) => {
     setLoading(true);
-    try {
-      const authData = await api.register(email, password, fullName, role, phoneNumber);
-      setUser({ id: authData.user.id, email: authData.user.email });
-      setProfile({
-        id: authData.user.id,
-        email: authData.user.email,
-        full_name: authData.user.full_name,
-        role: authData.user.role as UserProfile['role'],
-        phone_number: authData.user.phone_number,
-        is_active: authData.user.is_active,
-      });
-    } finally {
-      setLoading(false);
-    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setUser({ id: email, email });
+    setProfile({
+      id: email,
+      email,
+      full_name: fullName,
+      role: role as UserProfile['role'],
+      phone_number: phoneNumber,
+      is_active: true,
+    });
+    setLoading(false);
   };
 
   const signOut = async () => {
-    try {
-      await api.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
     setUser(null);
     setProfile(null);
   };
 
   const resetPassword = async (email: string) => {
-    // TODO: Implement password reset with backend
-    console.log('Password reset requested for', email);
-    throw new Error('Password reset not yet implemented');
+    // Mock reset
+    console.log('Password reset for', email);
   };
 
   const value = {
