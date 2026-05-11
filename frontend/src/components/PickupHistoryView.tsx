@@ -9,8 +9,10 @@ import {
   GraduationCap,
   FileText,
   Activity,
+  CheckCircle,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { patterns, animations, getStatusColor } from '../styles/designSystem';
 
 type PickupRecord = {
   id: string;
@@ -106,6 +108,32 @@ export default function PickupHistoryView({
     setFilteredPickups(filtered);
   };
 
+  const getPickupStatus = (pickupTime: string) => {
+    const now = new Date();
+    const pickupDate = new Date(pickupTime);
+    const hoursDiff = (now.getTime() - pickupDate.getTime()) / (1000 * 60 * 60);
+
+    if (hoursDiff < 1) {
+      return {
+        status: 'Recent',
+        color: getStatusColor('success'),
+        icon: CheckCircle
+      };
+    } else if (hoursDiff < 24) {
+      return {
+        status: 'Today',
+        color: getStatusColor('info'),
+        icon: Clock3
+      };
+    } else {
+      return {
+        status: 'Older',
+        color: getStatusColor('neutral'),
+        icon: Calendar
+      };
+    }
+  };
+
   const exportToCSV = () => {
     const headers = ['Date', 'Time', 'Student', 'Grade', 'Picked By', 'Notes'];
 
@@ -169,7 +197,7 @@ export default function PickupHistoryView({
         <button
           onClick={exportToCSV}
           disabled={filteredPickups.length === 0}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-all duration-200 px-5 py-3 rounded-2xl text-white shadow-lg hover:shadow-blue-500/30 disabled:opacity-50"
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl ${patterns.button.primary} disabled:opacity-50`}
         >
           <Download className="w-4 h-4" />
           Export CSV
@@ -179,7 +207,7 @@ export default function PickupHistoryView({
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-        <div className="bg-white rounded-3xl border border-gray-200 p-5 shadow-sm">
+        <div className={`${patterns.card.base} p-5`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Total Pickups</p>
@@ -188,13 +216,13 @@ export default function PickupHistoryView({
               </h3>
             </div>
 
-            <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center">
-              <Activity className="w-7 h-7 text-blue-600" />
+            <div className={`${patterns.iconContainer.xl} ${patterns.iconBackground.blue} flex items-center justify-center`}>
+              <Activity className="w-7 h-7" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-gray-200 p-5 shadow-sm">
+        <div className={`${patterns.card.base} p-5`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Today's Records</p>
@@ -208,13 +236,13 @@ export default function PickupHistoryView({
               </h3>
             </div>
 
-            <div className="w-14 h-14 rounded-2xl bg-green-100 flex items-center justify-center">
-              <Calendar className="w-7 h-7 text-green-600" />
+            <div className={`${patterns.iconContainer.xl} ${patterns.iconBackground.green} flex items-center justify-center`}>
+              <Calendar className="w-7 h-7" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-gray-200 p-5 shadow-sm">
+        <div className={`${patterns.card.base} p-5`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Active Filter</p>
@@ -223,8 +251,8 @@ export default function PickupHistoryView({
               </h3>
             </div>
 
-            <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center">
-              <Filter className="w-7 h-7 text-purple-600" />
+            <div className={`${patterns.iconContainer.xl} ${patterns.iconBackground.yellow} flex items-center justify-center`}>
+              <Filter className="w-7 h-7" />
             </div>
           </div>
         </div>
@@ -232,9 +260,8 @@ export default function PickupHistoryView({
 
       {/* FILTERS */}
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-3xl border border-gray-200 p-5 shadow-sm"
+        {...animations.fadeIn}
+        className={`${patterns.card.base} p-5`}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -247,7 +274,7 @@ export default function PickupHistoryView({
               placeholder="Search student or parent..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={patterns.input.base}
             />
           </div>
 
@@ -258,7 +285,7 @@ export default function PickupHistoryView({
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full appearance-none pl-12 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`appearance-none ${patterns.input.base}`}
             >
               <option value="today">Today</option>
               <option value="week">Last 7 Days</option>
@@ -271,9 +298,9 @@ export default function PickupHistoryView({
 
       {/* EMPTY STATE */}
       {filteredPickups.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-16 text-center">
+        <div className={`${patterns.card.base} p-16 text-center`}>
           <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Calendar className="w-10 h-10 text-blue-600" />
+            <Calendar className={`w-10 h-10 ${patterns.iconBackground.blue.replace('bg-', 'text-').replace('text-blue-100', 'text-blue-600')}`} />
           </div>
 
           <h3 className="text-2xl font-bold text-gray-800">
@@ -286,130 +313,67 @@ export default function PickupHistoryView({
         </div>
       ) : (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden flex-1 min-h-0"
+          {...animations.fadeIn}
+          className={`${patterns.card.base} p-6`}
         >
+          <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar">
+            {filteredPickups.map((pickup, index) => {
+              const date = new Date(pickup.pickup_time);
+              const status = getPickupStatus(pickup.pickup_time);
+              const StatusIcon = status.icon;
 
-          {/* SCROLLABLE CONTENT */}
-          <div className="overflow-auto max-h-[600px]">
-
-            <table className="min-w-full">
-
-              <thead className="sticky top-0 bg-white z-10 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Student
-                  </th>
-
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Pickup Time
-                  </th>
-
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Grade
-                  </th>
-
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Picked By
-                  </th>
-
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Notes
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-gray-100">
-
-                {filteredPickups.map((pickup, index) => {
-                  const date = new Date(pickup.pickup_time);
-
-                  return (
-                    <motion.tr
-                      key={pickup.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.02 }}
-                      className="hover:bg-blue-50/40 transition-colors"
-                    >
-
-                      {/* STUDENT */}
-                      <td className="px-6 py-5 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-
-                          <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
-                            <GraduationCap className="w-6 h-6 text-blue-600" />
-                          </div>
-
-                          <div>
-                            <p className="font-semibold text-gray-800">
-                              {pickup.student_name}
-                            </p>
-
-                            <p className="text-sm text-gray-500">
-                              Student Record
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* DATE */}
-                      <td className="px-6 py-5 whitespace-nowrap">
-                        <div className="flex items-center gap-2 text-gray-700">
-                          <Clock3 className="w-4 h-4 text-gray-400" />
-
-                          <div>
-                            <p className="font-medium">
-                              {date.toLocaleDateString()}
-                            </p>
-
-                            <p className="text-sm text-gray-500">
-                              {date.toLocaleTimeString()}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* GRADE */}
-                      <td className="px-6 py-5 whitespace-nowrap">
-                        <span className="inline-flex px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
-                          {pickup.grade}
-                        </span>
-                      </td>
-
-                      {/* PARENT */}
-                      <td className="px-6 py-5 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-
-                          <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center">
-                            <User className="w-4 h-4 text-green-600" />
-                          </div>
-
-                          <span className="font-medium text-gray-700">
-                            {pickup.parent_name}
+              return (
+                <motion.div
+                  key={pickup.id}
+                  {...animations.stagger(index * 0.03)}
+                  className={`p-4 rounded-2xl border border-gray-100 ${patterns.card.interactive}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      <div className={`${patterns.iconContainer.md} flex items-center justify-center flex-shrink-0 ${patterns.iconBackground.blue}`}>
+                        <GraduationCap className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-gray-900 truncate">
+                            {pickup.student_name}
+                          </h4>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
+                            {status.status}
                           </span>
                         </div>
-                      </td>
-
-                      {/* NOTES */}
-                      <td className="px-6 py-5">
-                        <div className="flex items-start gap-2 max-w-xs">
-
-                          <FileText className="w-4 h-4 text-gray-400 mt-0.5" />
-
-                          <p className="text-sm text-gray-600 line-clamp-2">
-                            {pickup.notes || 'No notes available'}
-                          </p>
+                        <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
+                          <div className="flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            <span>{pickup.parent_name}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor('info')}`}>
+                              {pickup.grade}
+                            </span>
+                          </div>
                         </div>
-                      </td>
-
-                    </motion.tr>
-                  );
-                })}
-
-              </tbody>
-            </table>
+                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                          <Clock3 className="w-3 h-3" />
+                          <span>{date.toLocaleString()}</span>
+                        </div>
+                        {pickup.notes && (
+                          <div className="mt-2 flex items-start gap-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-2">
+                            <FileText className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                            <span className="line-clamp-2">{pickup.notes}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <div className={`${patterns.iconContainer.sm} flex items-center justify-center border ${status.color}`}>
+                        <StatusIcon className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </motion.div>
       )}
