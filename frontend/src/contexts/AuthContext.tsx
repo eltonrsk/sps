@@ -59,8 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await authService.login({ email, password });
       setUser({ id: response.user.id, email: response.user.email });
       setProfile(response.user);
-    } catch (error) {
-      throw error;
     } finally {
       setLoading(false);
     }
@@ -76,11 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phone_number: phoneNumber,
         password
       });
-      
-      // After successful registration, sign in
-      await signIn(email, password);
-    } catch (error) {
-      throw error;
     } finally {
       setLoading(false);
     }

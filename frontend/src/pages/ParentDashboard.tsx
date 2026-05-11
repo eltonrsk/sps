@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import QRCodeDisplay from '../components/QRCodeDisplay';
-import { Users, LogOut, QrCode, History, UserPlus, ShieldAlert, Trash2, Bell, ChevronRight, GraduationCap } from 'lucide-react';
+import { Users, LogOut, QrCode, History, UserPlus, ShieldAlert, Trash2, Bell, ChevronRight, GraduationCap, Eye, Check, AlertCircle } from 'lucide-react';
 import { studentService, Guardian } from '../services/studentService';
 import { notificationService, Notification } from '../services/notificationService';
+import { patterns, getStatusColor } from '../styles/designSystem';
 
 type Student = {
   id: string;
@@ -53,12 +54,35 @@ export default function ParentDashboard() {
   const [guardianSuccess, setGuardianSuccess] = useState('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
+  const [recentNotifications, setRecentNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>('students');
 
   useEffect(() => {
     loadParentData();
   }, []);
+
+  // Set up polling for real-time notifications
+  useEffect(() => {
+    checkForNewNotifications();
+    const interval = setInterval(checkForNewNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [unreadCount]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showNotificationDropdown) {
+        const target = event.target as Element;
+        if (!target.closest('.notification-dropdown')) {
+          setShowNotificationDropdown(false);
+        }
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotificationDropdown]);
 
   const loadParentData = async () => {
     try {
@@ -199,8 +223,42 @@ export default function ParentDashboard() {
       );
       setNotifications(uniqueNotifications);
       setUnreadCount(unreadData.unread_count);
+      
+      // Load recent notifications for dropdown
+      const recentData = await notificationService.getUserNotifications(false, 5);
+      setRecentNotifications(recentData);
     } catch (error) {
       console.error('Error refreshing notifications:', error);
+    }
+  };
+
+  const checkForNewNotifications = async () => {
+    try {
+      const unreadData = await notificationService.getUnreadCount();
+      const newUnreadCount = unreadData.unread_count;
+      
+      if (newUnreadCount !== unreadCount) {
+        setUnreadCount(newUnreadCount);
+        
+        if (newUnreadCount > unreadCount) {
+          const recentData = await notificationService.getUserNotifications(false, 5);
+          setRecentNotifications(recentData);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking notifications:', error);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'pickup':
+        return Check;
+      case 'warning':
+        return AlertCircle;
+      case 'info':
+      default:
+        return Bell;
     }
   };
 
@@ -242,26 +300,121 @@ export default function ParentDashboard() {
               const active = activeTab === item.id;
 
               return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 group ${
-                    active
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className="w-5 h-5" />
-                    <span className="text-sm font-medium">
-                      {item.label}
-                    </span>
-                  </div>
+                <div key={item.id} className="relative notification-dropdown">
+                  <button
+                    onClick={() => {
+                      if (item.id === "notifications" && unreadCount > 0) {
+                        setShowNotificationDropdown(!showNotificationDropdown);
+                      } else {
+                        setActiveTab(item.id);
+                      }
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 group ${
+                      active
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Icon className="w-5 h-5" />
+                        {/* Status indicator for notifications */}
+                        {item.id === "notifications" && (
+                          <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${
+                            unreadCount > 0 
+                              ? "bg-red-500 border-red-500 animate-pulse" 
+                              : "bg-emerald-500 border-emerald-500"
+                          }`} />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium">
+                        {item.label}
+                      </span>
+                    </div>
 
-                  {active && (
-                    <ChevronRight className="w-4 h-4 opacity-80" />
+                    <div className="flex items-center gap-2">
+                      {/* Show notification badge for Notifications item */}
+                      {item.id === "notifications" && unreadCount > 0 && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                          active 
+                            ? "bg-white text-blue-600" 
+                            : "bg-red-500 text-white animate-pulse"
+                        }`}>
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                      
+                      {active && (
+                        <ChevronRight className="w-4 h-4 opacity-80" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Notification Dropdown */}
+                  {item.id === "notifications" && showNotificationDropdown && (
+                    <div className="absolute left-full ml-2 top-0 w-80 bg-white rounded-2xl border border-gray-200 shadow-xl z-50">
+                      <div className="p-4 border-b border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-gray-900">Notifications</h3>
+                          <button
+                            onClick={() => setActiveTab("notifications")}
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            View All
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="max-h-96 overflow-y-auto">
+                        {recentNotifications.length === 0 ? (
+                          <div className="p-6 text-center">
+                            <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No new notifications</p>
+                          </div>
+                        ) : (
+                          recentNotifications.map((notification) => {
+                            const Icon = getNotificationIcon(notification.type);
+                            const colorClass = getStatusColor(notification.type);
+                            return (
+                              <div
+                                key={notification.id}
+                                onClick={() => {
+                                  handleMarkAsRead(notification.id);
+                                  setShowNotificationDropdown(false);
+                                }}
+                                className="p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-all"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${colorClass}`}>
+                                    <Icon className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className={`text-sm font-medium text-gray-900 truncate ${
+                                        !notification.is_read ? 'font-bold' : ''
+                                      }`}>
+                                        {notification.title}
+                                      </h4>
+                                      {!notification.is_read && (
+                                        <div className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-gray-600 line-clamp-2">
+                                      {notification.message}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      {new Date(notification.created_at).toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
                   )}
-                </button>
+                </div>
               );
             })}
           </nav>
@@ -671,14 +824,14 @@ export default function ParentDashboard() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={refreshNotifications}
-                            className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-2xl transition-colors"
+                            className={`px-4 py-2 text-sm font-medium rounded-2xl transition-colors ${patterns.button.secondary}`}
                           >
                             Refresh
                           </button>
                           {unreadCount > 0 && (
                             <button
                               onClick={handleMarkAllAsRead}
-                              className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-2xl transition-colors"
+                              className={`px-4 py-2 text-sm font-medium rounded-2xl transition-colors ${patterns.button.primary}`}
                             >
                               Mark All as Read
                             </button>
@@ -688,7 +841,7 @@ export default function ParentDashboard() {
                       {notifications.length === 0 ? (
                         <motion.div
                           whileHover={{ y: -3 }}
-                          className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm"
+                          className={`${patterns.card.base} p-12 text-center`}
                         >
                           <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                           <p className="text-gray-600 text-lg font-medium mb-2">No notifications</p>
@@ -697,9 +850,9 @@ export default function ParentDashboard() {
                       ) : (
                         <motion.div
                           whileHover={{ y: -3 }}
-                          className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden"
+                          className={`${patterns.card.base} overflow-hidden`}
                         >
-                          <div className="divide-y divide-gray-100">
+                          <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar">
                             {notifications.map((notification) => {
                               const studentNames = students.map(s => `${s.first_name} ${s.last_name}`).join('|');
                               const isRelatedToStudent = students.length === 0 || 
@@ -709,33 +862,56 @@ export default function ParentDashboard() {
                               
                               if (!isRelatedToStudent) return null;
                               
+                              const Icon = getNotificationIcon(notification.type);
+                              const colorClass = getStatusColor(notification.type);
+                              
                               return (
-                                <div
+                                <motion.div
                                   key={notification.id}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
                                   onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
-                                  className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                                    !notification.is_read ? 'bg-blue-50' : ''
-                                  }`}
+                                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                                    !notification.is_read 
+                                      ? 'bg-blue-50 border-blue-200' 
+                                      : 'bg-gray-50 border-gray-100'
+                                  } hover:border-blue-200`}
                                 >
                                   <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <h3 className={`font-semibold ${!notification.is_read ? 'text-gray-900' : 'text-gray-700'}`}>
-                                          {notification.title}
-                                        </h3>
-                                        {!notification.is_read && (
-                                          <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                                        )}
+                                    <div className="flex items-start gap-3 flex-1">
+                                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${colorClass}`}>
+                                        <Icon className="w-5 h-5" />
                                       </div>
-                                      <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
-                                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                                        <span>{notification.user_name || 'System'}</span>
-                                        <span>•</span>
-                                        <span>{new Date(notification.created_at).toLocaleString()}</span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h3 className={`font-semibold text-gray-900 truncate ${
+                                            !notification.is_read ? 'font-bold' : ''
+                                          }`}>
+                                            {notification.title}
+                                          </h3>
+                                          {!notification.is_read && (
+                                            <div className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0" />
+                                          )}
+                                        </div>
+                                        <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
+                                        <p className="text-xs text-gray-400">
+                                          {new Date(notification.created_at).toLocaleString()}
+                                        </p>
                                       </div>
                                     </div>
+                                    {!notification.is_read && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleMarkAsRead(notification.id);
+                                        }}
+                                        className="p-2 rounded-lg hover:bg-blue-100 text-blue-600 transition-all"
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </button>
+                                    )}
                                   </div>
-                                </div>
+                                </motion.div>
                               );
                             })}
                           </div>

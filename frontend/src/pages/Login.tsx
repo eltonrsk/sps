@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -7,8 +7,10 @@ import {
   Lock,
   User,
   Phone,
-  Shield,
   ArrowLeft,
+  CheckCircle,
+  XCircle,
+  X,
 } from "lucide-react";
 
 interface LoginProps {
@@ -20,7 +22,10 @@ export default function Login({ onBack }: LoginProps) {
 
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,16 +33,137 @@ export default function Login({ onBack }: LoginProps) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [role, setRole] = useState("parent");
 
+  // Auto-dismiss notification after 6 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  // Helper function to get user-friendly error messages
+  const getErrorMessage = (error: unknown, isLogin: boolean): string => {
+    const message = error instanceof Error ? error.message : String(error);
+    const lowerMessage = message.toLowerCase();
+
+    // Email already exists
+    if (lowerMessage.includes('email') && (lowerMessage.includes('already') || lowerMessage.includes('exists') || lowerMessage.includes('taken'))) {
+      return 'This email is already registered. Please use a different email or try logging in.';
+    }
+
+    // Invalid credentials for login
+    if (isLogin && (lowerMessage.includes('invalid') || lowerMessage.includes('credential') || lowerMessage.includes('password') || lowerMessage.includes('email'))) {
+      return 'Invalid email or password. Please check your credentials and try again.';
+    }
+
+    // Password too weak
+    if (lowerMessage.includes('password') && (lowerMessage.includes('weak') || lowerMessage.includes('short') || lowerMessage.includes('minimum'))) {
+      return 'Password is too weak. Please use at least 6 characters with a mix of letters and numbers.';
+    }
+
+    // Email format invalid
+    if (lowerMessage.includes('email') && (lowerMessage.includes('invalid') || lowerMessage.includes('format'))) {
+      return 'Please enter a valid email address.';
+    }
+
+    // Network/server errors
+    if (lowerMessage.includes('network') || lowerMessage.includes('server') || lowerMessage.includes('connection')) {
+      return 'Network error. Please check your internet connection and try again.';
+    }
+
+    // Default to the original message if no specific pattern matches
+    return message;
+  };
+
+  // Sanitize input to prevent XSS attacks
+  const sanitizeInput = (input: string): string => {
+    return input
+      .replace(/[&<>"']/g, (char) => {
+        const escapeMap: Record<string, string> = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#x27;'
+        };
+        return escapeMap[char];
+      })
+      .trim();
+  };
+
+  // Validation functions with regex
+  const validateEmail = (email: string): { valid: boolean; error?: string } => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!email) return { valid: false, error: 'Email is required' };
+    if (!emailRegex.test(email)) return { valid: false, error: 'Please enter a valid email address' };
+    if (email.length > 255) return { valid: false, error: 'Email is too long (max 255 characters)' };
+    return { valid: true };
+  };
+
+  const validatePassword = (password: string): { valid: boolean; error?: string } => {
+    if (!password) return { valid: false, error: 'Password is required' };
+    if (password.length < 6) return { valid: false, error: 'Password must be at least 6 characters' };
+    if (password.length > 128) return { valid: false, error: 'Password is too long (max 128 characters)' };
+    // Check for at least one letter and one number
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    if (!hasLetter || !hasNumber) {
+      return { valid: false, error: 'Password must contain both letters and numbers' };
+    }
+    return { valid: true };
+  };
+
+  const validateFullName = (name: string): { valid: boolean; error?: string } => {
+    if (!name) return { valid: false, error: 'Full name is required' };
+    if (name.length < 2) return { valid: false, error: 'Name must be at least 2 characters' };
+    if (name.length > 100) return { valid: false, error: 'Name is too long (max 100 characters)' };
+    // Allow only letters, spaces, hyphens, and apostrophes
+    const nameRegex = /^[a-zA-Z\s'-]+$/;
+    if (!nameRegex.test(name)) return { valid: false, error: 'Name can only contain letters, spaces, hyphens, and apostrophes' };
+    return { valid: true };
+  };
+
+  const validatePhoneNumber = (phone: string): { valid: boolean; error?: string } => {
+    if (!phone) return { valid: true }; // Optional field
+    // Allow international phone numbers with +, digits, spaces, hyphens, and parentheses
+    const phoneRegex = /^\+?[\d\s()-]{10,20}$/;
+    if (!phoneRegex.test(phone)) return { valid: false, error: 'Please enter a valid phone number' };
+    return { valid: true };
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setError("");
+    setNotification(null);
+
+    // Validate inputs
+    const emailValidation = validateEmail(email);
+    const passwordValidation = validatePassword(password);
+
+    if (!emailValidation.valid) {
+      setNotification({ type: 'error', message: emailValidation.error || 'Invalid email' });
+      return;
+    }
+
+    if (!passwordValidation.valid) {
+      setNotification({ type: 'error', message: passwordValidation.error || 'Invalid password' });
+      return;
+    }
+
+    // Sanitize inputs
+    const sanitizedEmail = sanitizeInput(email);
+    const sanitizedPassword = password; // Password should not be sanitized as it may contain special chars
+
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      await signIn(sanitizedEmail, sanitizedPassword);
+      setNotification({ type: 'success', message: 'Login successful! Welcome back.' });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const errorMsg = getErrorMessage(err, true);
+      setNotification({ type: 'error', message: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -46,16 +172,49 @@ export default function Login({ onBack }: LoginProps) {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setError("");
+    setNotification(null);
+
+    // Validate inputs
+    const emailValidation = validateEmail(email);
+    const passwordValidation = validatePassword(password);
+    const nameValidation = validateFullName(fullName);
+    const phoneValidation = validatePhoneNumber(phoneNumber);
+
+    if (!emailValidation.valid) {
+      setNotification({ type: 'error', message: emailValidation.error || 'Invalid email' });
+      return;
+    }
+
+    if (!passwordValidation.valid) {
+      setNotification({ type: 'error', message: passwordValidation.error || 'Invalid password' });
+      return;
+    }
+
+    if (!nameValidation.valid) {
+      setNotification({ type: 'error', message: nameValidation.error || 'Invalid name' });
+      return;
+    }
+
+    if (!phoneValidation.valid) {
+      setNotification({ type: 'error', message: phoneValidation.error || 'Invalid phone number' });
+      return;
+    }
+
+    // Sanitize inputs
+    const sanitizedEmail = sanitizeInput(email);
+    const sanitizedFullName = sanitizeInput(fullName);
+    const sanitizedPhoneNumber = phoneNumber ? sanitizeInput(phoneNumber) : undefined;
+    const sanitizedPassword = password; // Password should not be sanitized as it may contain special chars
+
     setLoading(true);
 
     try {
       await signUp(
-        email,
-        password,
-        fullName,
+        sanitizedEmail,
+        sanitizedPassword,
+        sanitizedFullName,
         role,
-        phoneNumber || undefined
+        sanitizedPhoneNumber
       );
 
       setEmail("");
@@ -64,10 +223,11 @@ export default function Login({ onBack }: LoginProps) {
       setPhoneNumber("");
       setRole("parent");
 
-      setError("Account created successfully! Please sign in.");
+      setNotification({ type: 'success', message: 'Account created successfully! Please sign in.' });
       setIsLogin(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign up failed");
+      const errorMsg = getErrorMessage(err, false);
+      setNotification({ type: 'error', message: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -152,20 +312,31 @@ export default function Login({ onBack }: LoginProps) {
             </p>
           </div>
 
-          {/* Error */}
+          {/* Notification */}
           <AnimatePresence>
-            {error && (
+            {notification && (
               <motion.div
                 initial={{ opacity: 0, y: -15 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className={`mb-4 p-3 rounded-2xl text-sm border ${
-                  error.includes("successfully")
-                    ? "bg-emerald-500/10 text-emerald-200 border-emerald-400/20"
-                    : "bg-red-500/10 text-red-200 border-red-400/20"
+                exit={{ opacity: 0, scale: 0.95 }}
+                className={`mb-4 p-4 rounded-2xl text-sm border flex items-start gap-3 relative z-50 ${
+                  notification.type === 'success'
+                    ? "bg-emerald-500/30 text-emerald-100 border-emerald-400/40"
+                    : "bg-red-500/30 text-red-100 border-red-400/40"
                 }`}
               >
-                {error}
+                {notification.type === 'success' ? (
+                  <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                )}
+                <span className="flex-1 font-medium">{notification.message}</span>
+                <button
+                  onClick={() => setNotification(null)}
+                  className="flex-shrink-0 hover:opacity-70 transition-opacity"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
