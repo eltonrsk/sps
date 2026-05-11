@@ -32,6 +32,12 @@ export const userService = {
     return response.data;
   },
 
+  // Get security staff count (accessible by security and admin roles)
+  async getSecurityStaffCount(): Promise<number> {
+    const response = await api.get('/users/security/count');
+    return response.data.count;
+  },
+
   // Get user by ID (admin only)
   async getUserById(id: string): Promise<User> {
     const response = await api.get(`/users/${id}`);

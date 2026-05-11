@@ -4,12 +4,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { Shield, LogOut, ScanLine, History, ChevronRight, CheckCircle, Clock, Users } from 'lucide-react';
 import QRScanner from '../components/QRScanner';
 import { pickupService, Pickup } from '../services/pickupService';
+import { studentService } from '../services/studentService';
+import { userService } from '../services/userService';
 
 type TodayStats = {
   totalPickups: number;
   recentPickups: Pickup[];
   pendingPickups: number;
   averageTime: number;
+  securityStaffCount: number;
+  totalStudents: number;
 };
 
 const navItems = [
@@ -27,7 +31,9 @@ export default function SecurityDashboard() {
     totalPickups: 0,
     recentPickups: [],
     pendingPickups: 0,
-    averageTime: 0
+    averageTime: 0,
+    securityStaffCount: 0,
+    totalStudents: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -37,21 +43,38 @@ export default function SecurityDashboard() {
 
   const loadSecurityData = async () => {
     try {
-      const [todayPickups, recentPickupData] = await Promise.all([
+      const [students, todayPickups, recentPickupData] = await Promise.all([
+        studentService.getAllStudents(),
         pickupService.getTodayPickups(),
         pickupService.getRecentPickups(10)
       ]);
 
-      // Calculate average pickup time (mock calculation)
-      const averageTime = todayPickups.length > 0 
-        ? todayPickups.reduce((acc) => acc + 5, 0) / todayPickups.length 
-        : 0;
+      // Calculate unique student pickups today
+      const uniqueStudentPickups = new Set(
+        todayPickups.map((pickup) => pickup.student_id)
+      ).size;
+
+      // Calculate pending pickups (students not picked up today)
+      const pendingPickups = Math.max(students.length - uniqueStudentPickups, 0);
+
+      const totalStudents = students.length;
+
+      // Fetch security staff count
+      let securityStaffCount = 0;
+      try {
+        securityStaffCount = await userService.getSecurityStaffCount();
+      } catch (userError) {
+        console.warn('Could not fetch security staff count, using default value:', userError);
+        securityStaffCount = 5;
+      }
 
       setStats({
         totalPickups: todayPickups.length,
         recentPickups: recentPickupData,
-        pendingPickups: Math.max(0, 50 - todayPickups.length), // Mock pending count
-        averageTime: Math.round(averageTime)
+        pendingPickups: pendingPickups,
+        averageTime: 0, // No time tracking data available
+        securityStaffCount: securityStaffCount,
+        totalStudents: totalStudents
       });
     } catch (error) {
       console.error('Error loading security data:', error);
@@ -70,6 +93,13 @@ export default function SecurityDashboard() {
 
   const statCards = [
     {
+      title: 'Students',
+      value: stats.totalStudents,
+      icon: CheckCircle,
+      bg: 'bg-blue-100',
+      color: 'text-blue-600',
+    },
+    {
       title: 'Today\'s Pickups',
       value: stats.totalPickups,
       icon: CheckCircle,
@@ -84,15 +114,8 @@ export default function SecurityDashboard() {
       color: 'text-orange-600',
     },
     {
-      title: 'Avg. Time',
-      value: `${stats.averageTime}m`,
-      icon: Shield,
-      bg: 'bg-blue-100',
-      color: 'text-blue-600',
-    },
-    {
       title: 'Security Staff',
-      value: '8',
+      value: stats.securityStaffCount,
       icon: Users,
       bg: 'bg-slate-100',
       color: 'text-slate-600',
