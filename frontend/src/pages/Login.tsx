@@ -336,7 +336,7 @@ export default function Login({ onBack }: LoginProps) {
                   </div>
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm text-slate-200 mb-2 font-medium">
                     Role
                   </label>
@@ -362,7 +362,7 @@ export default function Login({ onBack }: LoginProps) {
                       </option>
                     </select>
                   </div>
-                </div>
+                </div> */}
 
                 <div>
                   <label className="block text-sm text-slate-200 mb-2 font-medium">
