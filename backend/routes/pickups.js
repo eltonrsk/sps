@@ -22,7 +22,7 @@ router.post('/', authenticateToken, validatePickup, handleValidationErrors, asyn
       picked_by_user_id,
       verified_by_user_id,
       qr_code_id,
-      notes
+      notes: notes || null
     });
     
     // Mark QR code as used if provided
@@ -78,7 +78,7 @@ router.post('/qr', authenticateToken, async (req, res) => {
       picked_by_user_id: qrCode.user_id,
       verified_by_user_id: req.user.id,
       qr_code_id: qrCode.id,
-      notes
+      notes: notes || null
     });
     
     // Mark QR code as used

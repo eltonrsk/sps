@@ -31,6 +31,17 @@ router.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Get security staff count (accessible by security and admin roles)
+router.get('/security/count', authenticateToken, authorizeRoles('admin', 'security'), async (req, res) => {
+  try {
+    const users = await User.findAll('security');
+    res.json({ count: users.length });
+  } catch (error) {
+    console.error('Get security staff count error:', error);
+    res.status(500).json({ error: 'Failed to fetch security staff count' });
+  }
+});
+
 // Get user by ID (admin only)
 router.get('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {

@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
 import { studentService } from '../services/studentService';
 import { userService } from '../services/userService';
-import { GraduationCap, Search, Plus, X, UserPlus } from 'lucide-react';
+import {
+  GraduationCap,
+  Search,
+  Plus,
+  X,
+  UserPlus,
+  Users,
+  BookOpen,
+} from 'lucide-react';
 
 type Student = {
   id: string;
@@ -59,6 +67,7 @@ export default function StudentManagement() {
     try {
       const data = await studentService.getAllStudents();
       setStudents(data);
+      setFilteredStudents(data);
     } catch (error) {
       console.error('Error loading students:', error);
     } finally {
@@ -104,16 +113,21 @@ export default function StudentManagement() {
       });
 
       setShowAddModal(false);
+
       setNewStudent({
         firstName: '',
         lastName: '',
         grade: '',
         className: '',
       });
-      loadStudents();
+
+      await loadStudents();
     } catch (error) {
       console.error('Error adding student:', error);
-      alert('Error adding student: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      alert(
+        'Error adding student: ' +
+          (error instanceof Error ? error.message : 'Unknown error')
+      );
     } finally {
       setLoading(false);
     }
@@ -121,6 +135,7 @@ export default function StudentManagement() {
 
   const handleAddGuardian = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!selectedStudent) return;
 
     setLoading(true);
@@ -133,15 +148,22 @@ export default function StudentManagement() {
       });
 
       setShowGuardianModal(false);
+
       setNewGuardian({
         userId: '',
         relationship: '',
       });
+
       setSelectedStudent(null);
+
       alert('Guardian added successfully!');
     } catch (error) {
       console.error('Error adding guardian:', error);
-      alert('Error adding guardian: ' + (error instanceof Error ? error.message : 'Unknown error'));
+
+      alert(
+        'Error adding guardian: ' +
+          (error instanceof Error ? error.message : 'Unknown error')
+      );
     } finally {
       setLoading(false);
     }
@@ -153,143 +175,233 @@ export default function StudentManagement() {
   };
 
   if (loading && students.length === 0) {
-    return <div className="text-center py-8">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-[400px]">
+        <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="h-screen flex flex-col overflow-hidden bg-gray-100">
+      {/* HEADER */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Student Management</h2>
-          <p className="text-gray-600 text-sm mt-1">Manage student records and guardians</p>
+          <h2 className="text-3xl font-bold text-gray-900">
+            Student Management
+          </h2>
+
+          <p className="text-gray-500 mt-1">
+            Manage student records and guardians
+          </p>
         </div>
+
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 shadow-md hover:shadow-lg"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-5 h-5" />
           Add Student
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      {/* SEARCH */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
         <div className="relative">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+
           <input
             type="text"
-            placeholder="Search by name or grade..."
+            placeholder="Search student by name or grade..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredStudents.map((student) => (
-          <div key={student.id} className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                <GraduationCap className="w-8 h-8 text-blue-600" />
-              </div>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {student.first_name} {student.last_name}
+      {/* SCROLLABLE CONTENT */}
+      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+        {filteredStudents.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+            <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+
+            <h3 className="text-xl font-semibold text-gray-800">
+              No Students Found
             </h3>
-            <div className="space-y-2 text-sm text-gray-600 mb-4">
-              <div className="flex justify-between">
-                <span>Grade:</span>
-                <span className="font-medium text-gray-900">{student.grade}</span>
-              </div>
-              {student.class_name && (
-                <div className="flex justify-between">
-                  <span>Class:</span>
-                  <span className="font-medium text-gray-900">{student.class_name}</span>
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => openGuardianModal(student)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add Guardian
-            </button>
+
+            <p className="text-gray-500 mt-2">
+              Try changing your search keyword.
+            </p>
           </div>
-        ))}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-8">
+            {filteredStudents.map((student) => (
+              <div
+                key={student.id}
+                className="group bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden"
+              >
+                {/* TOP */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+                  <div className="flex items-center justify-between">
+                    <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
+                      <GraduationCap className="w-8 h-8" />
+                    </div>
+
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        student.is_active
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {student.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+
+                  <div className="mt-5">
+                    <h3 className="text-2xl font-bold">
+                      {student.first_name} {student.last_name}
+                    </h3>
+
+                    <p className="text-blue-100 mt-1">
+                      Student Profile
+                    </p>
+                  </div>
+                </div>
+
+                {/* BODY */}
+                <div className="p-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <BookOpen className="w-4 h-4" />
+                        Grade
+                      </div>
+
+                      <span className="font-semibold text-gray-900">
+                        {student.grade}
+                      </span>
+                    </div>
+
+                    {student.class_name && (
+                      <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Users className="w-4 h-4" />
+                          Class
+                        </div>
+
+                        <span className="font-semibold text-gray-900">
+                          {student.class_name}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* BUTTON */}
+                  <button
+                    onClick={() => openGuardianModal(student)}
+                    className="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-all duration-200 font-medium"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Add Guardian
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* ADD STUDENT MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Add New Student</h3>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-2xl font-bold text-gray-900">
+                Add Student
+              </h3>
+
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 rounded-lg hover:bg-gray-100"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
 
-            <form onSubmit={handleAddStudent} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
-                <input
-                  type="text"
-                  value={newStudent.firstName}
-                  onChange={(e) => setNewStudent({ ...newStudent, firstName: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+            <form
+              onSubmit={handleAddStudent}
+              className="p-6 space-y-5"
+            >
+              <input
+                type="text"
+                placeholder="First Name"
+                value={newStudent.firstName}
+                onChange={(e) =>
+                  setNewStudent({
+                    ...newStudent,
+                    firstName: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                required
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-                <input
-                  type="text"
-                  value={newStudent.lastName}
-                  onChange={(e) => setNewStudent({ ...newStudent, lastName: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Last Name"
+                value={newStudent.lastName}
+                onChange={(e) =>
+                  setNewStudent({
+                    ...newStudent,
+                    lastName: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                required
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Grade</label>
-                <input
-                  type="text"
-                  value={newStudent.grade}
-                  onChange={(e) => setNewStudent({ ...newStudent, grade: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                  placeholder="e.g., Grade 5"
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Grade"
+                value={newStudent.grade}
+                onChange={(e) =>
+                  setNewStudent({
+                    ...newStudent,
+                    grade: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                required
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Class Name</label>
-                <input
-                  type="text"
-                  value={newStudent.className}
-                  onChange={(e) => setNewStudent({ ...newStudent, className: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., 5A"
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Class Name"
+                value={newStudent.className}
+                onChange={(e) =>
+                  setNewStudent({
+                    ...newStudent,
+                    className: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+              />
 
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-3 rounded-xl border border-gray-300 hover:bg-gray-100 transition"
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                  className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition"
                 >
                   {loading ? 'Adding...' : 'Add Student'}
                 </button>
@@ -299,34 +411,48 @@ export default function StudentManagement() {
         </div>
       )}
 
+      {/* GUARDIAN MODAL */}
       {showGuardianModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b">
               <h3 className="text-xl font-bold text-gray-900">
-                Add Guardian for {selectedStudent.first_name} {selectedStudent.last_name}
+                Add Guardian
               </h3>
+
               <button
                 onClick={() => {
                   setShowGuardianModal(false);
                   setSelectedStudent(null);
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 rounded-lg hover:bg-gray-100"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
 
-            <form onSubmit={handleAddGuardian} className="space-y-4">
+            <form
+              onSubmit={handleAddGuardian}
+              className="p-6 space-y-5"
+            >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Parent</label>
+                <label className="block text-sm font-medium mb-2">
+                  Select Parent
+                </label>
+
                 <select
                   value={newGuardian.userId}
-                  onChange={(e) => setNewGuardian({ ...newGuardian, userId: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) =>
+                    setNewGuardian({
+                      ...newGuardian,
+                      userId: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
                   required
                 >
-                  <option value="">Choose a parent...</option>
+                  <option value="">Choose Parent</option>
+
                   {parents.map((parent) => (
                     <option key={parent.id} value={parent.id}>
                       {parent.full_name} ({parent.email})
@@ -336,14 +462,22 @@ export default function StudentManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Relationship</label>
+                <label className="block text-sm font-medium mb-2">
+                  Relationship
+                </label>
+
                 <select
                   value={newGuardian.relationship}
-                  onChange={(e) => setNewGuardian({ ...newGuardian, relationship: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) =>
+                    setNewGuardian({
+                      ...newGuardian,
+                      relationship: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
                   required
                 >
-                  <option value="">Select relationship...</option>
+                  <option value="">Select Relationship</option>
                   <option value="Mother">Mother</option>
                   <option value="Father">Father</option>
                   <option value="Guardian">Guardian</option>
@@ -359,14 +493,15 @@ export default function StudentManagement() {
                     setShowGuardianModal(false);
                     setSelectedStudent(null);
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-3 rounded-xl border border-gray-300 hover:bg-gray-100 transition"
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                  className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition"
                 >
                   {loading ? 'Adding...' : 'Add Guardian'}
                 </button>

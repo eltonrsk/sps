@@ -28,35 +28,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setUser({ id: email, email });
-
-    // Sample admin user
-    const isAdmin = email === 'admin@school.com' && password === 'password123';
-
-    setProfile({
-      id: email,
-      email,
-      full_name: isAdmin ? 'Admin User' : 'User',
-      role: isAdmin ? 'admin' : 'parent',
-      is_active: true,
-    });
-    setLoading(false);
+    try {
+      const response = await authService.login({ email, password });
+      setUser({ id: response.user.id, email: response.user.email });
+      setProfile(response.user);
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signUp = async (email: string, password: string, fullName: string, role: string, phoneNumber?: string) => {
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setUser({ id: email, email });
-    setProfile({
-      id: email,
-      email,
-      full_name: fullName,
-      role: role as UserProfile['role'],
-      phone_number: phoneNumber,
-      is_active: true,
-    });
-    setLoading(false);
+    try {
+      await authService.register({
+        email,
+        full_name: fullName,
+        role: role as 'admin' | 'parent' | 'teacher' | 'security',
+        phone_number: phoneNumber,
+        password
+      });
+      
+      // After successful registration, sign in
+      await signIn(email, password);
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signOut = async () => {

@@ -5,12 +5,21 @@ export class Pickup {
   static async create(pickupData) {
     const { student_id, picked_by_user_id, verified_by_user_id, qr_code_id, notes } = pickupData;
     
+    // Convert undefined to null for database compatibility
+    const params = [
+      student_id,
+      picked_by_user_id || null,
+      verified_by_user_id || null,
+      qr_code_id || null,
+      notes || null
+    ];
+    
     const query = `
       INSERT INTO pickups (student_id, picked_by_user_id, verified_by_user_id, qr_code_id, notes)
       VALUES (?, ?, ?, ?, ?)
     `;
     
-    const result = await executeQuery(query, [student_id, picked_by_user_id, verified_by_user_id, qr_code_id, notes]);
+    const result = await executeQuery(query, params);
     return result.insertId;
   }
 
@@ -88,7 +97,7 @@ export class Pickup {
   static async getTodayPickups() {
     const query = `
       SELECT p.*, 
-             s.first_name, s.last_name, s.grade, s.class_name,
+             CONCAT(s.first_name, ' ', s.last_name) as student_name, s.grade, s.class_name,
              picker.full_name as picked_by_name,
              verifier.full_name as verified_by_name
       FROM pickups p
@@ -163,7 +172,7 @@ export class Pickup {
   static async getRecentPickups(limit = 10) {
     const query = `
       SELECT p.*, 
-             s.first_name, s.last_name, s.grade,
+             CONCAT(s.first_name, ' ', s.last_name) as student_name, s.grade,
              picker.full_name as picked_by_name,
              verifier.full_name as verified_by_name
       FROM pickups p
